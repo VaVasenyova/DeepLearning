@@ -1,70 +1,14 @@
-let fullData = null;
+// Global variables
+let mergedData = null;
 let trainData = null;
+let testData = null;
+let summaryReport = "";
 
-function parseCSV(text) {
-    const lines = text.trim().split(/\r?\n/);
-    const headers = lines[0].split(',').map(h => h.trim());
-    const rows = [];
-
-    for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.trim()) continue;
-        const values = [];
-        let inQuotes = false;
-        let current = '';
-
-        for (let j = 0; j < line.length; j++) {
-            const char = line[j];
-            if (char === '"' && (j === 0 || line[j - 1] !== '\\')) {
-                inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-                values.push(current);
-                current = '';
-            } else {
-                current += char;
-            }
-        }
-        values.push(current);
-
-        const row = {};
-        headers.forEach((header, idx) => {
-            let val = (values[idx] || '').trim();
-            if (val === '') {
-                row[header] = null;
-            } else if (val.startsWith('"') && val.endsWith('"')) {
-                row[header] = val.slice(1, -1);
-            } else if (!isNaN(val) && val !== '') {
-                row[header] = parseFloat(val);
-            } else {
-                row[header] = val;
-            }
-        });
-        rows.push(row);
-    }
-    return rows;
-}
-
-function renderTable(data, columns) {
-    if (!data.length) return '<p>No data</p>';
-    let html = '<table><thead><tr>';
-    columns.forEach(col => html += `<th>${col}</th>`);
-    html += '</tr></thead><tbody>';
-    data.forEach(row => {
-        html += '<tr>';
-        columns.forEach(col => {
-            const val = row[col];
-            html += `<td>${val === null || val === undefined ? '' : val}</td>`;
-        });
-        html += '</tr>';
-    });
-    html += '</tbody></table>';
-    return html;
-}
-
-function downloadBlob(content, filename, mimeType) {
-    const blob = new Blob([content], { type: mimeType });
+// Utility: download text/blob
+function downloadBlob(content, filename, contentType = "text/plain") {
+    const blob = new Blob([content], { type: contentType });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
@@ -73,308 +17,322 @@ function downloadBlob(content, filename, mimeType) {
     URL.revokeObjectURL(url);
 }
 
-async function loadData() {
-    const trainFile = document.getElementById('train-file').files[0];
-    const testFile = document.getElementById('test-file').files[0];
+// Parse CSV files
+function parseCSV(file) {
+    return new Promise((resolve, reject) => {
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => resolve(results.data),
+            error: (error) => reject(error)
+        });
+    });
+}
+
+// Add source column
+function addSourceColumn(data, source) {
+    return data.map(row => ({ ...row, source }));
+}
+
+// Format percentage
+function pct(value, total) {
+    return ((value / total) * 100).toFixed(2) + "%";
+}
+
+// Main load handler
+document.getElementById("loadDataBtn").addEventListener("click", async () => {
+    const trainFile = document.getElementById("trainFile").files[0];
+    const testFile = document.getElementById("testFile").files[0];
 
     if (!trainFile || !testFile) {
-        alert('Please select both train.csv and test.csv');
+        alert("Please upload both train.csv and test.csv");
         return;
     }
 
-    document.getElementById('loading').style.display = 'block';
-
     try {
-        const trainText = await trainFile.text();
-        const testText = await testFile.text();
+        trainData = await parseCSV(trainFile);
+        testData = await parseCSV(testFile);
 
-        let train = parseCSV(trainText);
-        let test = parseCSV(testText);
+        const trainWithSource = addSourceColumn(trainData, "train");
+        const testWithSource = addSourceColumn(testData, "test");
 
-        train = train.map(r => ({ ...r, source: 'train' }));
-        test = test.map(r => ({ ...r, source: 'test' }));
+        mergedData = [...trainWithSource, ...testWithSource];
 
-        fullData = [...train, ...test];
-        trainData = fullData.filter(d => d.source === 'train');
-
-        updateOverview();
-        updateMissingValues();
-        updateStats();
-        updateVisualizations();
-        document.getElementById('export-section').classList.remove('hidden');
-
-        document.getElementById('loading').style.display = 'none';
+        summaryReport = "";
+        document.getElementById("overviewContent").innerHTML = "";
+        document.getElementById("missingContent").innerHTML = "";
+        document.getElementById("statsContent").innerHTML = "";
+        document.getElementById("vizContent").innerHTML = "";
+        document.getElementById("exportStatus").innerHTML = "<p style='color:#a0e75a'>✅ Data loaded successfully!</p>";
     } catch (err) {
         console.error(err);
-        alert('Error processing files: ' + err.message);
-        document.getElementById('loading').style.display = 'none';
+        document.getElementById("exportStatus").innerHTML = `<p style='color:red'>❌ Error loading data: ${err.message}</p>`;
     }
-}
+});
 
-function updateOverview() {
-    const shape = `${fullData.length} rows × ${Object.keys(fullData[0]).length} columns`;
-    document.getElementById('shape-text').textContent = shape;
+// Show Overview
+document.getElementById("showOverviewBtn").addEventListener("click", () => {
+    if (!mergedData) {
+        alert("Please load data first.");
+        return;
+    }
 
-    const preview = fullData.slice(0, 10);
-    const cols = ['PassengerId', 'Survived', 'Pclass', 'Name', 'Sex', 'Age', 'SibSp', 'Parch', 'Ticket', 'Fare', 'Cabin', 'Embarked', 'source'];
-    document.getElementById('preview-table').innerHTML = renderTable(preview, cols);
-    document.getElementById('overview-section').classList.remove('hidden');
-}
+    const rows = mergedData.length;
+    const cols = Object.keys(mergedData[0]).length;
+    const headers = Object.keys(mergedData[0]);
 
-function updateMissingValues() {
-    const cols = Object.keys(fullData[0]);
-    const total = fullData.length;
-    const missing = cols.map(col => {
-        const count = fullData.filter(row => row[col] === null).length;
-        const pct = ((count / total) * 100).toFixed(2);
-        return { Column: col, 'Missing Count': count, 'Missing Percentage': `${pct}%` };
+    let html = `<p><strong>Shape:</strong> ${rows} rows × ${cols} columns</p>`;
+    html += `<p><strong>Columns:</strong> ${headers.join(", ")}</p>`;
+    html += "<h3>First 5 Rows:</h3><table><thead><tr>";
+    headers.forEach(h => html += `<th>${h}</th>`);
+    html += "</tr></thead><tbody>";
+    mergedData.slice(0, 5).forEach(row => {
+        html += "<tr>";
+        headers.forEach(h => html += `<td>${row[h] === "" || row[h] == null ? "∅" : row[h]}</td>`);
+        html += "</tr>";
+    });
+    html += "</tbody></table>";
+
+    document.getElementById("overviewContent").innerHTML = html;
+    summaryReport += `\n=== DATASET OVERVIEW ===\nRows: ${rows}, Columns: ${cols}\nColumns: ${headers.join(", ")}\n`;
+});
+
+// Missing Values
+document.getElementById("showMissingBtn").addEventListener("click", () => {
+    if (!mergedData) {
+        alert("Please load data first.");
+        return;
+    }
+
+    const headers = Object.keys(mergedData[0]);
+    const total = mergedData.length;
+    const missing = {};
+
+    headers.forEach(col => {
+        const missingCount = mergedData.filter(row => !row[col] || row[col] === "").length;
+        missing[col] = {
+            count: missingCount,
+            pct: ((missingCount / total) * 100).toFixed(2)
+        };
     });
 
-    document.getElementById('missing-table').innerHTML = renderTable(missing, ['Column', 'Missing Count', 'Missing Percentage']);
-
-    // График пропусков — белый фон
-    Plotly.newPlot('missing-chart', [{
-        x: missing.map(m => m.Column),
-        y: missing.map(m => m['Missing Count']),
-        type: 'bar',
-        marker: { color: '#e74c3c' }
-    }], {
-        title: 'Missing Values per Column',
-        xaxis: { title: 'Column', showgrid: false, zeroline: false },
-        yaxis: { title: 'Count', showgrid: true, gridcolor: '#ddd' },
-        paper_bgcolor: 'white',
-        plot_bgcolor: 'white'
+    let html = "<table><thead><tr><th>Column</th><th>Missing Count</th><th>Missing %</th></tr></thead><tbody>";
+    Object.entries(missing).forEach(([col, stats]) => {
+        html += `<tr><td>${col}</td><td>${stats.count}</td><td>${stats.pct}%</td></tr>`;
     });
+    html += "</tbody></table>";
 
-    document.getElementById('missing-section').classList.remove('hidden');
-}
+    document.getElementById("missingContent").innerHTML = html;
 
-function updateStats() {
-    const numericCols = ['Age', 'Fare', 'SibSp', 'Parch'];
-    const numStats = numericCols.map(col => {
+    summaryReport += "\n=== MISSING VALUES ===\n";
+    Object.entries(missing).forEach(([col, stats]) => {
+        summaryReport += `${col}: ${stats.count} (${stats.pct}%)\n`;
+    });
+});
+
+// Stats Summary (Train Only)
+document.getElementById("showStatsBtn").addEventListener("click", () => {
+    if (!trainData) {
+        alert("Please load data first.");
+        return;
+    }
+
+    const numericCols = ["Age", "Fare", "SibSp", "Parch"];
+    const catCols = ["Pclass", "Sex", "Embarked"];
+
+    // Numeric stats
+    let html = "<h3>Numeric Features (Train Set)</h3><table><thead><tr><th>Feature</th><th>Mean</th><th>Median</th><th>Std Dev</th><th>Min</th><th>Max</th></tr></thead><tbody>";
+    let reportText = "\n=== NUMERIC SUMMARY (TRAIN) ===\n";
+
+    numericCols.forEach(col => {
         const values = trainData
-            .map(d => d[col])
-            .filter(v => v !== null && !isNaN(v));
-        if (values.length === 0) return { Feature: col, Mean: 'N/A', Median: 'N/A', 'Std Dev': 'N/A', Min: 'N/A', Max: 'N/A' };
+            .map(r => parseFloat(r[col]))
+            .filter(v => !isNaN(v));
+        if (values.length === 0) return;
+
         const mean = values.reduce((a, b) => a + b, 0) / values.length;
-        const sorted = [...values].sort((a, b) => a - b);
-        const median = sorted.length % 2 === 0
-            ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
-            : sorted[Math.floor(sorted.length / 2)];
+        const median = values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
+        const std = Math.sqrt(values.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / values.length);
         const min = Math.min(...values);
         const max = Math.max(...values);
-        const std = Math.sqrt(values.reduce((sum, val) => sum + (val - mean) ** 2, 0) / values.length);
-        return {
-            Feature: col,
-            Mean: mean.toFixed(2),
-            Median: median.toFixed(2),
-            'Std Dev': std.toFixed(2),
-            Min: min.toFixed(2),
-            Max: max.toFixed(2)
-        };
+
+        html += `<tr><td>${col}</td><td>${mean.toFixed(2)}</td><td>${median.toFixed(2)}</td><td>${std.toFixed(2)}</td><td>${min}</td><td>${max}</td></tr>`;
+        reportText += `${col}: Mean=${mean.toFixed(2)}, Median=${median.toFixed(2)}, Std=${std.toFixed(2)}, Min=${min}, Max=${max}\n`;
     });
-    document.getElementById('numeric-stats').innerHTML = renderTable(numStats, ['Feature', 'Mean', 'Median', 'Std Dev', 'Min', 'Max']);
+    html += "</tbody></table>";
 
-    const pclassCounts = { 1: 0, 2: 0, 3: 0 };
-    trainData.forEach(d => { if (d.Pclass in pclassCounts) pclassCounts[d.Pclass]++; });
-    const pclassTotal = trainData.length;
-    const pclassTable = Object.entries(pclassCounts).map(([cls, cnt]) => ({
-        Pclass: cls,
-        Count: cnt,
-        Percentage: `${((cnt / pclassTotal) * 100).toFixed(2)}%`
-    }));
-    document.getElementById('pclass-table').innerHTML = renderTable(pclassTable, ['Pclass', 'Count', 'Percentage']);
+    // Categorical counts + survival rates
+    const totalTrain = trainData.length;
+    const survived = trainData.filter(r => r.Survived === "1").length;
 
-    const sexCounts = { male: 0, female: 0 };
-    trainData.forEach(d => { if (d.Sex in sexCounts) sexCounts[d.Sex]++; });
-    const sexTable = Object.entries(sexCounts).map(([sex, cnt]) => ({
-        Sex: sex,
-        Count: cnt,
-        Percentage: `${((cnt / pclassTotal) * 100).toFixed(2)}%`
-    }));
-    document.getElementById('sex-table').innerHTML = renderTable(sexTable, ['Sex', 'Count', 'Percentage']);
+    // Survival rate overall
+    html += `<p><strong>Overall Survival Rate:</strong> ${survived} / ${totalTrain} = ${pct(survived, totalTrain)}</p>`;
+    reportText += `\nOverall Survival: ${survived}/${totalTrain} (${pct(survived, totalTrain)})\n`;
 
-    const embarkedCounts = { S: 0, C: 0, Q: 0 };
-    trainData.forEach(d => { if (d.Embarked in embarkedCounts) embarkedCounts[d.Embarked]++; });
-    const embarkedTable = Object.entries(embarkedCounts).map(([port, cnt]) => ({
-        Embarked: port,
-        Count: cnt,
-        Percentage: `${((cnt / pclassTotal) * 100).toFixed(2)}%`
-    }));
-    document.getElementById('embarked-table').innerHTML = renderTable(embarkedTable, ['Embarked', 'Count', 'Percentage']);
-
-    const survPclass = [1, 2, 3].map(cls => {
-        const total = trainData.filter(d => d.Pclass == cls).length;
-        const survived = trainData.filter(d => d.Pclass == cls && d.Survived === 1).length;
-        return {
-            Pclass: cls,
-            Total: total,
-            Survived: survived,
-            'Survival Rate': total ? `${((survived / total) * 100).toFixed(2)}%` : '0%'
-        };
-    });
-    document.getElementById('survival-pclass').innerHTML = renderTable(survPclass, ['Pclass', 'Total', 'Survived', 'Survival Rate']);
-
-    const survSex = ['male', 'female'].map(sex => {
-        const total = trainData.filter(d => d.Sex === sex).length;
-        const survived = trainData.filter(d => d.Sex === sex && d.Survived === 1).length;
-        return {
-            Sex: sex,
-            Total: total,
-            Survived: survived,
-            'Survival Rate': total ? `${((survived / total) * 100).toFixed(2)}%` : '0%'
-        };
-    });
-    document.getElementById('survival-sex').innerHTML = renderTable(survSex, ['Sex', 'Total', 'Survived', 'Survival Rate']);
-
-    const survEmbarked = ['S', 'C', 'Q'].map(port => {
-        const total = trainData.filter(d => d.Embarked === port).length;
-        const survived = trainData.filter(d => d.Embarked === port && d.Survived === 1).length;
-        return {
-            Embarked: port,
-            Total: total,
-            Survived: survived,
-            'Survival Rate': total ? `${((survived / total) * 100).toFixed(2)}%` : '0%'
-        };
-    });
-    document.getElementById('survival-embarked').innerHTML = renderTable(survEmbarked, ['Embarked', 'Total', 'Survived', 'Survival Rate']);
-
-    document.getElementById('stats-section').classList.remove('hidden');
-}
-
-function updateVisualizations() {
-    const survived = trainData.filter(d => d.Survived === 1).length;
-    const not = trainData.filter(d => d.Survived === 0).length;
-    Plotly.newPlot('survival-bar', [
-        { x: ['Survived'], y: [survived], type: 'bar', name: 'Survived', marker: { color: '#2ecc71' } },
-        { x: ['Not Survived'], y: [not], type: 'bar', name: 'Not Survived', marker: { color: '#e74c3c' } }
-    ], {
-        title: 'Survival Distribution (Train Set)',
-        paper_bgcolor: 'white',
-        plot_bgcolor: 'white',
-        xaxis: { showgrid: false },
-        yaxis: { showgrid: true, gridcolor: '#eee' }
-    });
-
-    const ages = fullData.map(d => d.Age).filter(a => a != null);
-    Plotly.newPlot('age-hist', [{
-        x: ages,
-        type: 'histogram',
-        nbinsx: 30,
-        marker: { color: '#3498db' }
-    }], {
-        title: 'Age Distribution',
-        xaxis: { title: 'Age', showgrid: false },
-        yaxis: { title: 'Count', showgrid: true, gridcolor: '#eee' },
-        paper_bgcolor: 'white',
-        plot_bgcolor: 'white'
-    });
-
-    const fares = fullData.map(d => d.Fare).filter(f => f != null);
-    Plotly.newPlot('fare-box', [{
-        y: fares,
-        type: 'box',
-        name: 'Fare',
-        boxpoints: 'outliers',
-        marker: { color: '#9b59b6' }
-    }], {
-        title: 'Fare Distribution (with Outliers)',
-        paper_bgcolor: 'white',
-        plot_bgcolor: 'white',
-        yaxis: { showgrid: true, gridcolor: '#eee' }
-    });
-
-    const corrCols = ['Survived', 'Pclass', 'Age', 'SibSp', 'Parch', 'Fare'];
-    const clean = trainData.filter(d =>
-        corrCols.every(c => d[c] !== null && !isNaN(d[c]))
-    );
-    if (clean.length > 1) {
-        const matrix = corrCols.map(c => clean.map(d => d[c]));
-        function pearson(x, y) {
-            const n = x.length;
-            const sumX = x.reduce((a, b) => a + b, 0);
-            const sumY = y.reduce((a, b) => a + b, 0);
-            const sumXY = x.reduce((a, b, i) => a + b * y[i], 0);
-            const sumX2 = x.reduce((a, b) => a + b * b, 0);
-            const sumY2 = y.reduce((a, b) => a + b * b, 0);
-            const num = n * sumXY - sumX * sumY;
-            const den = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
-            return den === 0 ? 0 : num / den;
-        }
-        const corr = corrCols.map((_, i) =>
-            corrCols.map((_, j) => pearson(matrix[i], matrix[j]))
-        );
-        Plotly.newPlot('correlation-heatmap', [{
-            z: corr,
-            x: corrCols,
-            y: corrCols,
-            type: 'heatmap',
-            colorscale: [
-                [0.0, '#2ecc71'],
-                [0.5, '#ffffff'],
-                [1.0, '#f1c40f']
-            ],
-            zmin: -1,
-            zmax: 1,
-            colorbar: { title: 'Correlation' }
-        }], {
-            title: 'Correlation Matrix (Train Set)',
-            paper_bgcolor: 'white',
-            plot_bgcolor: 'white',
-            xaxis: { showgrid: false, tickangle: -30 },
-            yaxis: { showgrid: false }
+    // By Pclass, Sex, Embarked
+    ["Pclass", "Sex", "Embarked"].forEach(groupCol => {
+        const groups = {};
+        trainData.forEach(row => {
+            const key = row[groupCol] || "Unknown";
+            if (!groups[key]) groups[key] = { total: 0, survived: 0 };
+            groups[key].total++;
+            if (row.Survived === "1") groups[key].survived++;
         });
+
+        html += `<h4>Survival by ${groupCol}</h4><table><thead><tr><th>${groupCol}</th><th>Total</th><th>Survived</th><th>Rate</th></tr></thead><tbody>`;
+        reportText += `\n=== SURVIVAL BY ${groupCol.toUpperCase()} ===\n`;
+        Object.entries(groups).forEach(([key, stats]) => {
+            const rate = pct(stats.survived, stats.total);
+            html += `<tr><td>${key}</td><td>${stats.total}</td><td>${stats.survived}</td><td>${rate}</td></tr>`;
+            reportText += `${key}: ${stats.survived}/${stats.total} (${rate})\n`;
+        });
+        html += "</tbody></table>";
+    });
+
+    document.getElementById("statsContent").innerHTML = html;
+    summaryReport += reportText;
+});
+
+// Visualizations
+document.getElementById("showVizBtn").addEventListener("click", () => {
+    if (!mergedData || !trainData) {
+        alert("Please load data first.");
+        return;
     }
 
-    document.getElementById('viz-section').classList.remove('hidden');
-}
+    const vizDiv = document.getElementById("vizContent");
+    vizDiv.innerHTML = `
+    <div class="flex-row">
+      <div class="flex-chart"><div id="ageHist" class="chart-container"></div></div>
+      <div class="flex-chart"><div id="fareBox" class="chart-container"></div></div>
+    </div>
+    <div class="flex-row">
+      <div class="flex-chart"><div id="survivalPie" class="chart-container"></div></div>
+      <div class="flex-chart"><div id="corrHeatmap" class="chart-container"></div></div>
+    </div>
+  `;
 
-// Экспорт
-function exportMergedCSV() {
-    const headers = Object.keys(fullData[0]);
-    const csv = [headers.join(',')].concat(
-        fullData.map(row =>
-            headers.map(h => {
-                const val = row[h];
-                if (val === null || val === undefined) return '';
-                if (typeof val === 'string' && val.includes(',')) return `"${val}"`;
-                return val;
-            }).join(',')
-        )
-    ).join('\n');
-    downloadBlob(csv, 'titanic_merged.csv', 'text/csv');
-}
-
-function exportMergedJSON() {
-    const json = JSON.stringify(fullData, null, 2);
-    downloadBlob(json, 'titanic_merged.json', 'application/json');
-}
-
-function exportSummaryText() {
-    let summary = `Titanic Dataset Exploratory Data Analysis\n`;
-    summary += `Dataset shape: ${fullData.length} rows × ${Object.keys(fullData[0]).length} columns\n\n`;
-
-    const missing = Object.keys(fullData[0]).map(col => {
-        const count = fullData.filter(r => r[col] === null).length;
-        const pct = ((count / fullData.length) * 100).toFixed(2);
-        return `${col}: ${count} (${pct}%)`;
-    });
-    summary += `Missing Values:\n${missing.join('\n')}\n\n`;
-
-    const numericCols = ['Age', 'Fare', 'SibSp', 'Parch'];
-    summary += `Numeric Features Summary (Train):\n`;
-    numericCols.forEach(col => {
-        const vals = trainData.map(d => d[col]).filter(v => v != null && !isNaN(v));
-        if (vals.length === 0) return;
-        const mean = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2);
-        const sorted = [...vals].sort((a, b) => a - b);
-        const median = sorted.length % 2 === 0
-            ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
-            : sorted[Math.floor(sorted.length / 2)];
-        const min = Math.min(...vals);
-        const max = Math.max(...vals);
-        summary += `${col}: Mean=${mean}, Median=${median.toFixed(2)}, Min=${min}, Max=${max}\n`;
+    // Age Histogram
+    const ageData = trainData
+        .map(r => parseFloat(r.Age))
+        .filter(v => !isNaN(v));
+    Plotly.newPlot("ageHist", [{
+        x: ageData,
+        type: "histogram",
+        marker: { color: "#4CAF50" }
+    }], {
+        title: "Age Distribution (Train)",
+        plot_bgcolor: "white",
+        paper_bgcolor: "white"
     });
 
-    downloadBlob(summary, 'titanic_summary.txt', 'text/plain');
-}
+    // Fare Boxplot
+    const fareData = trainData
+        .map(r => parseFloat(r.Fare))
+        .filter(v => !isNaN(v));
+    Plotly.newPlot("fareBox", [{
+        y: fareData,
+        type: "box",
+        boxpoints: "outliers",
+        marker: { color: "#FFC107" }
+    }], {
+        title: "Fare Distribution (Train)",
+        plot_bgcolor: "white",
+        paper_bgcolor: "white"
+    });
+
+    // Survival Pie
+    const survivedCount = trainData.filter(r => r.Survived === "1").length;
+    const diedCount = trainData.length - survivedCount;
+    Plotly.newPlot("survivalPie", [{
+        labels: ["Survived", "Died"],
+        values: [survivedCount, diedCount],
+        type: "pie",
+        marker: { colors: ["#4CAF50", "#F44336"] }
+    }], {
+        title: "Survival Distribution (Train)",
+        plot_bgcolor: "white",
+        paper_bgcolor: "white"
+    });
+
+    // Correlation Heatmap (numeric cols only)
+    const numCols = ["Survived", "Pclass", "Age", "SibSp", "Parch", "Fare"];
+    const matrix = [];
+    numCols.forEach(() => matrix.push([]));
+
+    // Compute correlations
+    numCols.forEach((col1, i) => {
+        numCols.forEach((col2, j) => {
+            const x = trainData.map(r => parseFloat(r[col1])).filter(v => !isNaN(v));
+            const y = trainData.map(r => parseFloat(r[col2])).filter(v => !isNaN(v));
+            // Align by index (only where both exist)
+            const pairs = trainData
+                .map(r => [parseFloat(r[col1]), parseFloat(r[col2])])
+                .filter(([a, b]) => !isNaN(a) && !isNaN(b));
+            if (pairs.length === 0) {
+                matrix[i][j] = 0;
+                return;
+            }
+            const xVals = pairs.map(p => p[0]);
+            const yVals = pairs.map(p => p[1]);
+            const n = xVals.length;
+            const sumX = xVals.reduce((a, b) => a + b, 0);
+            const sumY = yVals.reduce((a, b) => a + b, 0);
+            const sumXY = xVals.reduce((acc, xv, idx) => acc + xv * yVals[idx], 0);
+            const sumX2 = xVals.reduce((acc, xv) => acc + xv * xv, 0);
+            const sumY2 = yVals.reduce((acc, yv) => acc + yv * yv, 0);
+            const corr = (n * sumXY - sumX * sumY) / Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY) || 1);
+            matrix[i][j] = isNaN(corr) ? 0 : corr;
+        });
+    });
+
+    Plotly.newPlot("corrHeatmap", [{
+        z: matrix,
+        x: numCols,
+        y: numCols,
+        type: "heatmap",
+        colorscale: [
+            [0, "green"],
+            [0.5, "yellow"],
+            [1, "red"]
+        ],
+        zmin: -1,
+        zmax: 1,
+        showscale: true
+    }], {
+        title: "Feature Correlation (Train)",
+        plot_bgcolor: "white",
+        paper_bgcolor: "white"
+    });
+});
+
+// Export Functions
+document.getElementById("exportCsvBtn").addEventListener("click", () => {
+    if (!mergedData) {
+        alert("No data to export.");
+        return;
+    }
+    const headers = Object.keys(mergedData[0]);
+    let csv = headers.join(",") + "\n";
+    mergedData.forEach(row => {
+        csv += headers.map(h => `"${String(row[h] ?? "").replace(/"/g, '""')}"`).join(",") + "\n";
+    });
+    downloadBlob(csv, "titanic_merged.csv", "text/csv");
+});
+
+document.getElementById("exportJsonBtn").addEventListener("click", () => {
+    if (!mergedData) {
+        alert("No data to export.");
+        return;
+    }
+    const json = JSON.stringify({ data: mergedData }, null, 2);
+    downloadBlob(json, "titanic_summary.json", "application/json");
+});
+
+document.getElementById("exportReportBtn").addEventListener("click", () => {
+    if (!summaryReport) {
+        alert("Run analysis steps first to generate a report.");
+        return;
+    }
+    downloadBlob(summaryReport, "titanic_eda_report.txt", "text/plain");
+});
