@@ -1,25 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Titanic Survival Analysis Dashboard</title>
-    <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        :root {
-            --primary-color: #1a5fb4;
-            --secondary-color: #2a6f97;
-            --accent-color: #cc5500;
-            --background-color: #f8f9fb;
-            --card-color: #ffffff;
-            --text-color: #2e3440;
-            --border-color: #dfe1e8;
-            --success-color: #26a269;
-            --danger-color: #c01c28;
-        }
-
         * {
             margin: 0;
             padding: 0;
@@ -27,10 +14,10 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6;
-            color: var(--text-color);
-            background-color: var(--background-color);
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 20px;
         }
 
@@ -41,427 +28,446 @@
 
         header {
             text-align: center;
-            padding: 30px 0;
+            padding: 40px 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             margin-bottom: 30px;
-            background: linear-gradient(120deg, var(--primary-color), var(--secondary-color));
-            color: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
         h1 {
-            font-size: 2.8rem;
+            font-size: 2.5rem;
+            color: #2c3e50;
             margin-bottom: 10px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
 
         .subtitle {
-            font-size: 1.4rem;
-            opacity: 0.9;
-            max-width: 800px;
-            margin: 0 auto;
+            font-size: 1.2rem;
+            color: #7f8c8d;
+            margin-bottom: 20px;
         }
 
-        .upload-section {
-            background-color: var(--card-color);
-            border-radius: 10px;
+        .step-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
             padding: 30px;
-            text-align: center;
             margin-bottom: 30px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            border: 2px dashed var(--border-color);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .step-title {
+            font-size: 1.8rem;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .step-number {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #667eea;
         }
 
         .upload-btn {
-            background: linear-gradient(120deg, var(--primary-color), var(--secondary-color));
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 14px 32px;
-            font-size: 1.2rem;
+            padding: 15px 40px;
+            font-size: 1.1rem;
             border-radius: 50px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            margin: 15px 0;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-weight: 600;
+            margin-top: 15px;
         }
 
         .upload-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
 
-        .upload-btn:active {
-            transform: translateY(1px);
-        }
-
-        #file-input {
-            display: none;
-        }
-
-        .section {
-            background-color: var(--card-color);
-            border-radius: 10px;
-            padding: 25px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        }
-
-        .section-title {
-            font-size: 1.8rem;
-            margin-bottom: 20px;
-            padding-bottom: 12px;
-            border-bottom: 2px solid var(--border-color);
-            color: var(--primary-color);
-            display: flex;
-            align-items: center;
-        }
-
-        .section-title::before {
-            content: "";
-            display: inline-block;
-            width: 8px;
-            height: 28px;
-            background: var(--accent-color);
-            border-radius: 4px;
-            margin-right: 12px;
-        }
-
-        .data-preview {
-            overflow-x: auto;
-            margin-top: 20px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 800px;
-        }
-
-        th,
-        td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        th {
-            background-color: #f1f4f9;
+        .file-name {
+            margin-top: 15px;
             font-weight: 600;
-            position: sticky;
-            top: 0;
-        }
-
-        tr:hover {
-            background-color: #f8fafc;
-        }
-
-        .visualization-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
-            gap: 25px;
-            margin-top: 20px;
-        }
-
-        .visualization-container {
-            background-color: var(--card-color);
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            transition: transform 0.3s ease;
-        }
-
-        .visualization-container:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.12);
-        }
-
-        .plot-container {
-            height: 400px;
-            width: 100%;
-        }
-
-        .key-findings {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-left: 5px solid var(--accent-color);
-            padding: 25px;
-            margin-top: 20px;
-            border-radius: 0 8px 8px 0;
-        }
-
-        .finding-item {
-            margin-bottom: 15px;
-            padding-left: 20px;
-            position: relative;
-        }
-
-        .finding-item::before {
-            content: "•";
-            position: absolute;
-            left: 0;
-            color: var(--accent-color);
-            font-weight: bold;
-            font-size: 1.4rem;
-        }
-
-        .factor-card {
-            background: white;
-            border-radius: 10px;
-            padding: 25px;
-            margin: 20px 0;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            border-top: 4px solid var(--accent-color);
-            transition: transform 0.3s ease;
-        }
-
-        .factor-card:hover {
-            transform: scale(1.02);
-        }
-
-        .factor-title {
-            font-size: 1.6rem;
-            margin-bottom: 15px;
-            color: var(--primary-color);
-            display: flex;
-            align-items: center;
-        }
-
-        .factor-title::before {
-            content: "★";
-            margin-right: 10px;
-            color: var(--accent-color);
-            font-size: 1.8rem;
-        }
-
-        .factor-evidence {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            border-left: 3px solid var(--success-color);
-        }
-
-        .stats-highlight {
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            margin: 25px 0;
-        }
-
-        .stat-item {
-            text-align: center;
-            padding: 20px;
-            min-width: 150px;
-            margin: 10px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-        }
-
-        .stat-value {
-            font-size: 2.2rem;
-            font-weight: bold;
-            color: var(--primary-color);
-            margin: 10px 0;
-        }
-
-        .stat-label {
-            font-size: 1.1rem;
-            color: #666;
-        }
-
-        .female-survival {
-            color: var(--success-color);
-        }
-
-        .male-survival {
-            color: var(--danger-color);
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            font-size: 1.4rem;
-            color: var(--secondary-color);
+            color: #27ae60;
         }
 
         .hidden {
             display: none;
         }
 
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .data-preview {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .row-count {
+            margin-top: 15px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .plot-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .plot-title {
+            font-size: 1.3rem;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .plot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+
+        .plot-item {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .findings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+
+        .finding-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s;
+        }
+
+        .finding-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .survival-rate {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .female-rate {
+            color: #26a269;
+        }
+
+        .male-rate {
+            color: #c01c28;
+        }
+
+        .class-rate {
+            color: #2a6f97;
+        }
+
+        .factor-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin: 20px 0 15px;
+            color: #2c3e50;
+        }
+
+        .factor-evidence {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .conclusion {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .conclusion h3 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+        }
+
+        .conclusion p {
+            font-size: 1.1rem;
+            line-height: 1.8;
+        }
+
+        .highlight {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-weight: 600;
+        }
+
         footer {
             text-align: center;
-            padding: 25px;
-            margin-top: 20px;
-            color: #666;
+            padding: 30px;
+            color: rgba(255, 255, 255, 0.9);
             font-size: 0.95rem;
-            border-top: 1px solid var(--border-color);
+            margin-top: 30px;
         }
 
         @media (max-width: 768px) {
-            .visualization-grid {
+            .plot-grid {
                 grid-template-columns: 1fr;
             }
-
-            .stats-highlight {
-                flex-direction: column;
-                align-items: center;
-            }
-
+            
             h1 {
-                font-size: 2.2rem;
+                font-size: 2rem;
             }
-
-            .subtitle {
-                font-size: 1.1rem;
+            
+            .step-title {
+                font-size: 1.5rem;
             }
-
-            .section {
-                padding: 20px;
+            
+            .upload-btn {
+                width: 100%;
+                padding: 12px;
             }
         }
     </style>
 </head>
-
 <body>
     <div class="container">
         <header>
-            <h1>Titanic Survival Analysis</h1>
-            <p class="subtitle">Upload the Titanic dataset to analyze survival factors and discover why some passengers
-                survived while others perished</p>
+            <h1>🚢 Titanic Survival Analysis Dashboard</h1>
+            <p class="subtitle">Upload the Titanic dataset to analyze survival factors and discover why some passengers survived while others perished</p>
         </header>
 
-        <section class="upload-section">
-            <h2>Step 1: Upload Titanic Dataset</h2>
-            <p>Upload the train.csv file from the Kaggle Titanic competition to begin analysis</p>
-            <input type="file" id="file-input" accept=".csv">
-            <button class="upload-btn" id="upload-btn">Select CSV File</button>
-            <p id="file-name" style="margin-top: 10px; font-weight: 500;"></p>
+        <!-- Step 1: Upload -->
+        <section class="step-section">
+            <div class="step-title">
+                <span class="step-number">1</span>
+                <span>Upload Titanic Dataset</span>
+            </div>
+            <p style="margin-bottom: 20px; color: #555;">Upload the train.csv file from the Kaggle Titanic competition to begin analysis</p>
+            
+            <div class="upload-area" id="upload-area">
+                <div class="upload-icon">📁</div>
+                <h3>Drag & Drop CSV File or Click to Browse</h3>
+                <p style="color: #7f8c8d; margin: 10px 0;">Supported format: CSV</p>
+                <button class="upload-btn" id="upload-btn">Select CSV File</button>
+                <input type="file" id="file-input" accept=".csv" style="display: none;">
+                <p class="file-name" id="file-name"></p>
+            </div>
+
+            <div class="loading hidden" id="loading-indicator">
+                <div class="spinner"></div>
+                <p>Loading and analyzing data... Please wait</p>
+            </div>
         </section>
 
-        <section class="section hidden" id="data-section">
-            <h2 class="section-title">Step 2: Data Preview</h2>
+        <!-- Step 2: Data Preview -->
+        <section class="step-section hidden" id="data-section">
+            <div class="step-title">
+                <span class="step-number">2</span>
+                <span>Data Preview</span>
+            </div>
+            <p class="row-count" id="row-count"></p>
             <div class="data-preview">
-                <table id="data-table">
+                <table>
                     <thead>
                         <tr id="table-headers"></tr>
                     </thead>
                     <tbody id="table-body"></tbody>
                 </table>
             </div>
-            <p id="row-count" style="margin-top: 15px; font-weight: 500;"></p>
         </section>
 
-        <section class="section hidden" id="eda-section">
-            <h2 class="section-title">Step 3 & 4: Exploratory Data Analysis</h2>
-            <div class="visualization-grid">
-                <div class="visualization-container">
-                    <h3>Missing Values Analysis</h3>
-                    <div class="plot-container" id="missing-values-plot"></div>
+        <!-- Step 3 & 4: EDA -->
+        <section class="step-section hidden" id="eda-section">
+            <div class="step-title">
+                <span class="step-number">3</span>
+                <span>Exploratory Data Analysis</span>
+            </div>
+
+            <div class="plot-grid">
+                <div class="plot-item">
+                    <div class="plot-title">Missing Values Analysis</div>
+                    <div id="missing-values-plot" style="width: 100%; height: 400px;"></div>
                 </div>
-                <div class="visualization-container">
-                    <h3>Survival Distribution</h3>
-                    <div class="plot-container" id="survival-distribution-plot"></div>
+
+                <div class="plot-item">
+                    <div class="plot-title">Survival Distribution</div>
+                    <div id="survival-distribution-plot" style="width: 100%; height: 400px;"></div>
                 </div>
-                <div class="visualization-container">
-                    <h3>Survival Rate by Gender</h3>
-                    <div class="plot-container" id="survival-by-sex-plot"></div>
+
+                <div class="plot-item">
+                    <div class="plot-title">Survival Rate by Gender</div>
+                    <div id="survival-by-sex-plot" style="width: 100%; height: 400px;"></div>
                 </div>
-                <div class="visualization-container">
-                    <h3>Survival Rate by Passenger Class</h3>
-                    <div class="plot-container" id="survival-by-pclass-plot"></div>
+
+                <div class="plot-item">
+                    <div class="plot-title">Survival Rate by Passenger Class</div>
+                    <div id="survival-by-pclass-plot" style="width: 100%; height: 400px;"></div>
                 </div>
-                <div class="visualization-container">
-                    <h3>Age Distribution by Survival</h3>
-                    <div class="plot-container" id="age-distribution-plot"></div>
+
+                <div class="plot-item">
+                    <div class="plot-title">Age Distribution by Survival</div>
+                    <div id="age-distribution-plot" style="width: 100%; height: 400px;"></div>
                 </div>
-                <div class="visualization-container">
-                    <h3>Correlation Heatmap</h3>
-                    <div class="plot-container" id="correlation-plot"></div>
+
+                <div class="plot-item">
+                    <div class="plot-title">Correlation Heatmap</div>
+                    <div id="correlation-plot" style="width: 100%; height: 400px;"></div>
                 </div>
             </div>
         </section>
 
-        <section class="section hidden" id="findings-section">
-            <h2 class="section-title">Step 5: Key Findings - Most Important Survival Factors</h2>
+        <!-- Step 5: Key Findings -->
+        <section class="step-section hidden" id="findings-section">
+            <div class="step-title">
+                <span class="step-number">4</span>
+                <span>Key Findings - Most Important Survival Factors</span>
+            </div>
 
-            <div class="stats-highlight">
-                <div class="stat-item">
-                    <div class="stat-value female-survival">74%</div>
-                    <div class="stat-label">Female Survival Rate</div>
+            <div class="findings-grid">
+                <div class="finding-card">
+                    <div class="survival-rate female-rate">74%</div>
+                    <div style="color: #7f8c8d; font-size: 1.1rem;">Female Survival Rate</div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-value male-survival">19%</div>
-                    <div class="stat-label">Male Survival Rate</div>
+                <div class="finding-card">
+                    <div class="survival-rate male-rate">19%</div>
+                    <div style="color: #7f8c8d; font-size: 1.1rem;">Male Survival Rate</div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-value">63%</div>
-                    <div class="stat-label">1st Class Survival Rate</div>
+                <div class="finding-card">
+                    <div class="survival-rate class-rate">63%</div>
+                    <div style="color: #7f8c8d; font-size: 1.1rem;">1st Class Survival Rate</div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-value">24%</div>
-                    <div class="stat-label">3rd Class Survival Rate</div>
+                <div class="finding-card">
+                    <div class="survival-rate" style="color: #c0392b;">24%</div>
+                    <div style="color: #7f8c8d; font-size: 1.1rem;">3rd Class Survival Rate</div>
                 </div>
             </div>
 
-            <div class="factor-card">
-                <h3 class="factor-title">Gender (Sex) - The Most Critical Factor</h3>
-                <p>Gender was the strongest predictor of survival on the Titanic. The "women and children first"
-                    protocol was strictly followed during the evacuation.</p>
-                <div class="factor-evidence">
-                    <p><strong>Evidence:</strong> Women had a <span class="female-survival">74% survival rate</span>
-                        compared to only <span class="male-survival">19% for men</span> - a dramatic 55 percentage point
-                        difference.</p>
-                </div>
-                <p>This factor alone explains more variance in survival outcomes than any other variable in the dataset,
-                    including passenger class or age.</p>
+            <div class="factor-title">Gender (Sex) - The Most Critical Factor</div>
+            <p>Gender was the strongest predictor of survival on the Titanic. The "women and children first" protocol was strictly followed during the evacuation.</p>
+            <div class="factor-evidence">
+                <strong>Evidence:</strong> Women had a <span class="female-rate">74%</span> survival rate compared to only <span class="male-rate">19%</span> for men - a dramatic <strong>55 percentage point</strong> difference.
             </div>
+            <p>This factor alone explains more variance in survival outcomes than any other variable in the dataset, including passenger class or age.</p>
 
-            <div class="factor-card">
-                <h3 class="factor-title">Passenger Class (Pclass) - Strong Socioeconomic Indicator</h3>
-                <p>Passenger class strongly correlated with survival chances, reflecting both cabin location and social
-                    priorities during evacuation.</p>
-                <div class="factor-evidence">
-                    <p><strong>Evidence:</strong> First-class passengers had a <span class="female-survival">63%
-                            survival rate</span>, while third-class passengers had only a <span
-                            class="male-survival">24% survival rate</span>.</p>
-                </div>
-                <p>This 39 percentage point gap demonstrates how socioeconomic status directly impacted survival
-                    probability.</p>
+            <div class="factor-title">Passenger Class (Pclass) - Strong Socioeconomic Indicator</div>
+            <p>Passenger class strongly correlated with survival chances, reflecting both cabin location and social priorities during evacuation.</p>
+            <div class="factor-evidence">
+                <strong>Evidence:</strong> First-class passengers had a <span class="class-rate">63%</span> survival rate, while third-class passengers had only a <span style="color: #c0392b;">24%</span> survival rate.
             </div>
+            <p>This <strong>39 percentage point gap</strong> demonstrates how socioeconomic status directly impacted survival probability.</p>
 
-            <div class="factor-card">
-                <h3 class="factor-title">Age - Children Had Priority</h3>
-                <p>While not as dominant as gender, age was still a significant factor, with children given priority
-                    during evacuation.</p>
-                <div class="factor-evidence">
-                    <p><strong>Evidence:</strong> Children under 10 had approximately a 60% survival rate compared to
-                        about 38% for adults.</p>
-                </div>
-                <p>When combined with gender (young females), survival rates exceeded 80%, showing the compounding
-                    effect of these factors.</p>
+            <div class="factor-title">Age - Children Had Priority</div>
+            <p>While not as dominant as gender, age was still a significant factor, with children given priority during evacuation.</p>
+            <div class="factor-evidence">
+                <strong>Evidence:</strong> Children under 10 had approximately a <strong>60%</strong> survival rate compared to about <strong>38%</strong> for adults.
             </div>
+            <p>When combined with gender (young females), survival rates exceeded <strong>80%</strong>, showing the compounding effect of these factors.</p>
 
-            <div class="key-findings">
-                <h3>Conclusion</h3>
-                <p class="finding-item">Based on comprehensive analysis of the Titanic dataset, <strong>gender (Sex) was
-                        the single most important factor</strong> determining survival. The cultural imperative to save
-                    women first created the largest disparity in survival rates across any variable.</p>
-                <p class="finding-item">Passenger class (Pclass) was the second most important factor, revealing how
-                    socioeconomic status influenced access to lifeboats.</p>
-                <p class="finding-item">These findings align with historical accounts of the disaster and demonstrate
-                    how social norms and shipboard protocols directly impacted survival outcomes.</p>
+            <div class="conclusion">
+                <h3>📊 Conclusion</h3>
+                <p>Based on comprehensive analysis of the Titanic dataset, <span class="highlight">gender (Sex)</span> was the single most important factor determining survival. The cultural imperative to save women first created the largest disparity in survival rates across any variable.</p>
+                <p style="margin-top: 15px;"><span class="highlight">Passenger class (Pclass)</span> was the second most important factor, revealing how socioeconomic status influenced access to lifeboats.</p>
+                <p style="margin-top: 15px;">These findings align with historical accounts of the disaster and demonstrate how social norms and shipboard protocols directly impacted survival outcomes.</p>
             </div>
         </section>
 
         <footer>
-            <p>Titanic Survival Analysis Dashboard | Created for GitHub Pages | Data Source: Kaggle Titanic Competition
-            </p>
+            <p>Titanic Survival Analysis Dashboard | Created for GitHub Pages | Data Source: Kaggle Titanic Competition</p>
         </footer>
     </div>
 
     <script src="script.js"></script>
 </body>
-
 </html>
