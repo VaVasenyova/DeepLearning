@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const tableHeaders = document.getElementById('table-headers');
     const tableBody = document.getElementById('table-body');
     const rowCountDisplay = document.getElementById('row-count');
+    const loadingIndicator = document.getElementById('loading-indicator');
 
     // Plot containers
     const missingValuesPlot = document.getElementById('missing-values-plot');
@@ -31,7 +32,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Load and process CSV data
     function loadData(file) {
+        // Show loading indicator
+        if (loadingIndicator) {
+            loadingIndicator.classList.remove('hidden');
+        }
+
+        // Reset previous content
+        tableHeaders.innerHTML = '';
+        tableBody.innerHTML = '';
+        rowCountDisplay.textContent = '';
+
         d3.csv(URL.createObjectURL(file)).then(function (data) {
+            // Hide loading indicator
+            if (loadingIndicator) {
+                loadingIndicator.classList.add('hidden');
+            }
+
+            // Validate data structure
+            if (!validateDataStructure(data)) {
+                alert('Invalid dataset. Please upload the Titanic train.csv file with required columns: Survived, Sex, Pclass, Age, SibSp, Parch, Fare.');
+                return;
+            }
+
             // Show data section
             dataSection.classList.remove('hidden');
 
@@ -51,8 +73,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
         }).catch(function (error) {
             console.error('Error loading CSV:', error);
+            if (loadingIndicator) {
+                loadingIndicator.classList.add('hidden');
+            }
             alert('Error loading CSV file. Please check the file format and try again.');
         });
+    }
+
+    // Validate required columns exist
+    function validateDataStructure(data) {
+        if (data.length === 0) return false;
+
+        const requiredColumns = ['Survived', 'Sex', 'Pclass', 'Age'];
+        const headers = Object.keys(data[0]);
+
+        return requiredColumns.every(col => headers.includes(col));
     }
 
     // Display data preview in table
