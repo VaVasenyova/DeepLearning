@@ -211,10 +211,11 @@ function createPreviewTable(data) {
 }
 
 // Create visualizations using tfjs-vis
+// Create visualizations using tfjs-vis
 function createVisualizations() {
     const chartsDiv = document.getElementById('charts');
     chartsDiv.innerHTML = '<h3>Data Visualizations</h3>';
-
+    
     // Survival by Sex
     const survivalBySex = {};
     trainData.forEach(row => {
@@ -237,12 +238,16 @@ function createVisualizations() {
     tfvis.render.barchart(
         { name: 'Survival Rate by Sex', tab: 'Charts' },
         sexData.map(d => ({ x: d.sex, y: d.survivalRate })),
-        {
-            xLabel: 'Sex',
+        { 
+            xLabel: 'Sex', 
             yLabel: 'Survival Rate (%)',
             height: 300
         }
     );
+
+    console.log('✓ Chart created: Survival Rate by Sex');
+    console.log('  Data points:', sexData.length);
+    console.log('  Values:', sexData.map(d => `${d.sex}: ${d.survivalRate.toFixed(2)}%`).join(', '));
 
     // Survival by Pclass
     const survivalByPclass = {};
@@ -266,14 +271,107 @@ function createVisualizations() {
     tfvis.render.barchart(
         { name: 'Survival Rate by Passenger Class', tab: 'Charts' },
         pclassData.map(d => ({ x: d.pclass, y: d.survivalRate })),
-        {
-            xLabel: 'Passenger Class',
+        { 
+            xLabel: 'Passenger Class', 
             yLabel: 'Survival Rate (%)',
             height: 300
         }
     );
 
+    console.log('✓ Chart created: Survival Rate by Passenger Class');
+    console.log('  Data points:', pclassData.length);
+    console.log('  Values:', pclassData.map(d => `${d.pclass}: ${d.survivalRate.toFixed(2)}%`).join(', '));
+
     chartsDiv.innerHTML += '<p>Interactive charts are displayed in the tfjs-vis visor (bottom-right corner).</p>';
+    console.log('✓ Data visualizations section updated in DOM');
+}
+
+// Display global feature importance with horizontal bar chart
+function displayGlobalFeatureImportance(importanceArray) {
+    const importanceDiv = document.getElementById('global-importance');
+    if (!importanceDiv) return;
+
+    // Normalize importance for color gradient (0 = yellow, 1 = green)
+    const maxImportance = Math.max(...importanceArray.map(d => d.importance));
+    
+    // Create colored bars with gradient for tfvis
+    const barData = importanceArray.map(d => {
+        const normalized = d.importance / maxImportance;
+        // Green (0, 128, 0) to Yellow (255, 255, 0) gradient
+        const r = Math.floor(255 * normalized);
+        const g = Math.floor(128 + 127 * normalized);
+        const b = 0;
+        const color = `rgb(${r}, ${g}, ${b})`;
+        
+        return {
+            x: d.feature,
+            y: d.importance,
+            color: color
+        };
+    });
+
+    // Render with tfvis
+    tfvis.render.barchart(
+        { name: 'Global Feature Importance', tab: 'Feature Importance' },
+        barData,
+        {
+            xLabel: 'Feature',
+            yLabel: 'Mean Gate Activation (0-1)',
+            title: 'Which Features Matter Most?',
+            height: 400,
+            fontSize: 10
+        }
+    );
+
+    console.log('✓ Chart created: Global Feature Importance');
+    console.log('  Total features:', importanceArray.length);
+    console.log('  Top 3 features:', importanceArray.slice(0, 3).map(f => `${f.feature}: ${f.importance.toFixed(3)}`).join(', '));
+    console.log('  Feature range: min=' + Math.min(...importanceArray.map(f => f.importance)).toFixed(3) + 
+                ', max=' + Math.max(...importanceArray.map(f => f.importance)).toFixed(3));
+
+    // Also display as HTML table for accessibility
+    const tableHTML = `
+        <h3>Global Feature Importance</h3>
+        <p><strong>Interpretation:</strong> Gate activation close to 1 means the feature strongly influences predictions. 
+        Close to 0 means the feature is largely ignored by the model.</p>
+        <table class="importance-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Feature</th>
+                    <th>Importance Score</th>
+                    <th>Impact</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${importanceArray.map((item, idx) => {
+                    const normalized = item.importance;
+                    const r = Math.floor(255 * normalized);
+                    const g = Math.floor(128 + 127 * normalized);
+                    const b = 0;
+                    const color = `rgb(${r}, ${g}, ${b})`;
+                    
+                    const impact = item.importance > 0.7 ? 'High' : 
+                                   item.importance > 0.4 ? 'Medium' : 'Low';
+                    
+                    return `
+                        <tr>
+                            <td>${idx + 1}</td>
+                            <td><strong>${item.feature}</strong></td>
+                            <td style="background-color: ${color}; color: white; font-weight: bold;">
+                                ${item.importance.toFixed(3)}
+                            </td>
+                            <td>${impact}</td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+        <p><strong>Note:</strong> The sigmoid gate learns to "turn on" (≈1) important features and "turn off" (≈0) irrelevant ones.</p>
+    `;
+
+    importanceDiv.innerHTML = tableHTML;
+    console.log('✓ Global feature importance table rendered in DOM');
 }
 
 // ========================================
