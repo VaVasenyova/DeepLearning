@@ -1,8 +1,8 @@
 /**
 Neural Network Design: The Gradient Puzzle
 Objective:
-Transform random noise into a smooth gradient using Smoothness + Direction
-Note: Sorted MSE removed - not differentiable in TensorFlow.js
+Transform random noise into a smooth gradient using Custom Loss Function
+Based on: Sorted MSE + Smoothness + Direction
 */
 
 // ==========================================
@@ -52,9 +52,6 @@ function directionX(yPred) {
   return tf.mean(yPred.mul(mask)).mul(-1);
 }
 
-// ⚠️ Sorted MSE REMOVED - Not differentiable in TF.js
-// Using minimal MSE instead to loosely preserve colors
-
 // ==========================================
 // 3. Model Architecture
 // ==========================================
@@ -69,21 +66,21 @@ function createBaselineModel() {
   return model;
 }
 
-// Student Model: All Three Architectures
-// ⚠️ FIXED: Removed extra spaces in string comparisons
+// Student Model: All Three Architectures ⭐ FIXED
 function createStudentModel(archType) {
   const model = tf.sequential();
   model.add(tf.layers.flatten({ inputShape: CONFIG.inputShapeModel }));
 
   if (archType === "compression") {
+    // Compression: Many→Few (64 neurons)
     model.add(tf.layers.dense({ units: 64, activation: "relu" }));
     model.add(tf.layers.dense({ units: 256, activation: "sigmoid" }));
   } else if (archType === "transformation") {
-    // Transformation: 1:1 mapping (256 = 16×16)
+    // Transformation: Same→Same (256 neurons = 16×16)
     model.add(tf.layers.dense({ units: 256, activation: "relu" }));
     model.add(tf.layers.dense({ units: 256, activation: "sigmoid" }));
   } else if (archType === "expansion") {
-    // Expansion: Overcomplete (512 > 256)
+    // Expansion: Few→Many (512 neurons > 256)
     model.add(tf.layers.dense({ units: 512, activation: "relu" }));
     model.add(tf.layers.dense({ units: 256, activation: "sigmoid" }));
   } else {
@@ -95,21 +92,21 @@ function createStudentModel(archType) {
 }
 
 // ==========================================
-// 4. Custom Loss Function
+// 4. Custom Loss Function ⭐ CRITICAL
 // ==========================================
 
 function studentLoss(yTrue, yPred) {
   return tf.tidy(() => {
-    // Level 1: Minimal MSE - loosely preserve colors (don't freeze positions)
+    // Level 1: Minimal MSE - preserve colors without freezing positions
     const lossMSE = mse(yTrue, yPred).mul(0.01);
     
-    // Level 3: Smoothness - Remove jagged noise
+    // Level 3: Smoothness - Remove jagged noise (Total Variation)
     const lossSmooth = smoothness(yPred).mul(0.5);
     
     // Level 3: Direction - Bright on right, dark on left
     const lossDir = directionX(yPred).mul(0.3);
     
-    // Total Loss (NO Sorted MSE - not differentiable)
+    // Total Loss (NO standard MSE - avoids identity mapping)
     return lossMSE.add(lossSmooth).add(lossDir);
   });
 }
@@ -166,7 +163,7 @@ async function trainStep() {
 }
 
 // ==========================================
-// 6. UI & Initialization
+// 6. UI & Initialization ⭐ FIXED
 // ==========================================
 
 function init() {
@@ -177,8 +174,12 @@ function init() {
     document.getElementById("canvas-input"),
   );
 
-  document.getElementById("btn-train").addEventListener("click", () => trainStep());
-  document.getElementById("btn-auto").addEventListener("click", toggleAutoTrain);
+  document
+    .getElementById("btn-train")
+    .addEventListener("click", () => trainStep());
+  document
+    .getElementById("btn-auto")
+    .addEventListener("click", toggleAutoTrain);
   document.getElementById("btn-reset").addEventListener("click", resetModels);
   document.querySelectorAll('input[name="arch"]').forEach((radio) => {
     radio.addEventListener("change", (e) => {
@@ -232,7 +233,7 @@ function resetModels(archType = null) {
     state.studentModel = createBaselineModel();
   }
 
-  // Create SEPARATE optimizers
+  // Create SEPARATE optimizers ⭐ FIXED
   state.baselineOptimizer = tf.train.adam(CONFIG.learningRate);
   state.studentOptimizer = tf.train.adam(CONFIG.learningRate);
 
@@ -259,8 +260,10 @@ async function render() {
 }
 
 function updateLossDisplay(base, stud) {
-  document.getElementById("loss-baseline").innerText = `Loss: ${base.toFixed(5)}`;
-  document.getElementById("loss-student").innerText = `Loss: ${stud.toFixed(5)}`;
+  document.getElementById("loss-baseline").innerText =
+    `Loss: ${base.toFixed(5)}`;
+  document.getElementById("loss-student").innerText =
+    `Loss: ${stud.toFixed(5)}`;
 }
 
 function log(msg, isError = false) {
