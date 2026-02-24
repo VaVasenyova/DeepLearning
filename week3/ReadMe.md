@@ -19,6 +19,17 @@
     3.  `Direction`: Принудительное формирование градиента слева направо.
 *   **Интерфейс:** Интерактивное обучение, сравнение базовой модели (MSE) и студента (Custom Loss), визуализация в реальном времени.
 
+## Значения весов (Loss Weights) / Weight Values Used
+В конфигурации `CONFIG` в файле `app.js` установлены следующие значения:
+
+| Компонент потерь | Значение | Назначение |
+| :--- | :--- | :--- |
+| **`distribution`** | `10.0` | Высокий вес: приоритет сохранения палитры цветов (гистограммы) входа |
+| **`smoothness`** | `0.5` | Умеренный вес: мягкий штраф за резкие перепады между соседними пикселями |
+| **`direction`** | `2.0` | Умеренный вес: направление градиента слева направо |
+| **`learningRate`** | `0.02` | Скорость обучения (снижена для стабильности) |
+
+
 ---
 
 ## 🇬🇧 English
@@ -39,3 +50,22 @@ Transform an input image of random noise (16x16) into a structured smooth gradie
     2.  `Smoothness`: Penalizes sharp differences between adjacent pixels (Total Variation).
     3.  `Direction`: Enforces a left-to-right gradient pattern.
 *   **UI:** Interactive training, comparison between Baseline model (MSE) and Student (Custom Loss), real-time visualization.
+
+In the `CONFIG` object within `app.js`, the following values are set:
+
+| Loss Component | Value | Purpose |
+| :--- | :--- | :--- |
+| **`distribution`** | `10.0` | High weight: prioritizes conserving the input color palette (histogram) |
+| **`smoothness`** | `0.5` | Moderate weight: gentle penalty for sharp differences between adjacent pixels |
+| **`direction`** | `2.0` | Moderate weight: enforces left-to-right gradient direction |
+| **`learningRate`** | `0.02` | Learning rate (reduced for training stability) |
+
+### Формула итоговой функции потерь / Final Loss Formula
+```
+Total Loss = 
+    distributionMatch(yTrue, yPred) × 10.0   // Level 2: Conservation
+  + smoothness(yPred) × 0.5                  // Level 3: Local consistency
+  + directionX(yPred) × 2.0                  // Level 3: Gradient alignment
+```
+
+
