@@ -1,107 +1,41 @@
-# Neural Network Design: The Gradient Puzzle
+# README.md Description / Описание для README.md
 
-## Описание
-Проект по обучению нейронной сети преобразовывать случайный шум в структурированный градиент без использования целевых меток (unsupervised learning).
+## 🇷🇺 Русский
 
-## Цель
-Разработать архитектуру автоэнкодера и функцию потерь, которые перераспределят пиксели случайного шума 16×16 в плавный направленный градиент.
+### **Цель проекта (The Gradient Puzzle)**
+Трансформировать входное изображение случайного шума (16x16) в структурированный плавный градиент **без использования целевых меток** (unsupervised learning). Модель должна научиться "переставлять" пиксели, а не копировать их.
 
-## Ключевое ограничение
-**Нельзя создавать новые цвета** — можно только перемещать существующие пиксели (аналогия: скользящий пазл). Гистограмма входа должна совпадать с гистограммой выхода.
+### **Основные требования**
+1.  **Архитектура:** Использование проекций нейросети (Сжатие, Расширение или Трансформация) вместо простого копирования.
+2.  **Ограничение распределения:** Запрещено создавать новые цвета. Гистограмма выходного изображения должна соответствовать входному (Input Histogram ≈ Output Histogram).
+3.  **Кастомная функция потерь:** Нельзя использовать стандартный MSE (приводит к Identity Mapping). Необходимо задать "намерение" модели через геометрию (гладкость + направление).
 
-## Типы архитектур
-
-1. **Compression** (Сжатие): 256 → 64 → 256  
-   *Many → Few*: Выделение главных признаков
-
-2. **Transformation** (Трансформация): 256 → 256 → 256  
-   *Same → Same*: Переориентация без потери информации
-
-3. **Expansion** (Расширение): 256 → 512 → 256  
-   *Few → Many*: Создание богатого представления
-
-## Функция потерь
-
-### ✅ Level 1 (Ловушка)
-**Pixel-wise MSE** — приводит к копированию входа (Identity Mapping)
-
-### ✅ Level 2 (Распределение)
-**Distribution Match** (Moment Matching) — сохраняет статистику цветов (среднее и дисперсию)
-
-### ✅ Level 3 (Геометрия)
-- **Smoothness Loss** (Total Variation) — убирает шум, делает переходы плавными
-- **Direction Loss** — создаёт градиент яркости слева направо
-
-**Итоговая функция:**  
-`Loss = Distribution + Smoothness + Direction`
-
-## Запуск
-Откройте `index.html` в браузере.
-
-## Использование
-1. Выберите архитектуру
-2. Нажмите **Auto Train (Start)**
-3. Наблюдайте, как шум превращается в градиент (100-300 шагов)
-
-## Технические детали
-- **Фреймворк:** TensorFlow.js
-- **Оптимизатор:** Adam (learning rate = 0.02)
-- **Вход:** 16×16 случайный шум
-
-## Важное замечание
-Sorted MSE из презентации заменён на Moment Matching, так как `tf.topk` в TensorFlow.js не поддерживает вычисление градиентов.
+### **Реализация**
+*   **Стек:** TensorFlow.js (работает прямо в браузере).
+*   **Архитектуры:** Реализованы 3 режима: `Compression` (сжатие), `Expansion` (расширение), `Transformation` (трансформация).
+*   **Функция потерь (Loss):** Комбинация трех компонентов:
+    1.  `Distribution Match`: Совпадение статистик (среднее и дисперсия) для сохранения палитры.
+    2.  `Smoothness`: Штраф за резкие перепады между соседними пикселями (Total Variation).
+    3.  `Direction`: Принудительное формирование градиента слева направо.
+*   **Интерфейс:** Интерактивное обучение, сравнение базовой модели (MSE) и студента (Custom Loss), визуализация в реальном времени.
 
 ---
 
-# Neural Network Design: The Gradient Puzzle
+## 🇬🇧 English
 
-## Description
-A project on training a neural network to transform random noise into a structured gradient without using target labels (unsupervised learning).
+### **Project Objective (The Gradient Puzzle)**
+Transform an input image of random noise (16x16) into a structured smooth gradient **without using target labels** (unsupervised learning). The model must learn to "rearrange" pixels rather than copy them.
 
-## Objective
-Develop an autoencoder architecture and loss function that redistributes pixels of 16×16 random noise into a smooth directional gradient.
+### **Key Requirements**
+1.  **Architecture:** Use Neural Network Projections (Compression, Expansion, or Transformation) instead of simple copying.
+2.  **Distribution Constraint:** Cannot create new colors. The output histogram must match the input (Input Histogram ≈ Output Histogram).
+3.  **Custom Loss Function:** Standard MSE is forbidden (leads to Identity Mapping). Must define "intent" through geometry (smoothness + direction).
 
-## Key Constraint
-**Cannot create new colors** — can only rearrange existing pixels (analogy: sliding puzzle). The input histogram must match the output histogram.
-
-## Architecture Types
-
-1. **Compression**: 256 → 64 → 256  
-   *Many → Few*: Extracting essential features
-
-2. **Transformation**: 256 → 256 → 256  
-   *Same → Same*: Re-orientation without information loss
-
-3. **Expansion**: 256 → 512 → 256  
-   *Few → Many*: Creating rich representation
-
-## Loss Function
-
-### ✅ Level 1 (The Trap)
-**Pixel-wise MSE** — leads to copying input (Identity Mapping)
-
-### ✅ Level 2 (Distribution)
-**Distribution Match** (Moment Matching) — preserves color statistics (mean and variance)
-
-### ✅ Level 3 (Geometry)
-- **Smoothness Loss** (Total Variation) — removes noise, makes transitions smooth
-- **Direction Loss** — creates brightness gradient from left to right
-
-**Combined Loss:**  
-`Loss = Distribution + Smoothness + Direction`
-
-## Running
-Open `index.html` in a browser.
-
-## Usage
-1. Select architecture
-2. Click **Auto Train (Start)**
-3. Watch noise transform into gradient (100-300 steps)
-
-## Technical Details
-- **Framework:** TensorFlow.js
-- **Optimizer:** Adam (learning rate = 0.02)
-- **Input:** 16×16 random noise
-
-## Important Note
-Sorted MSE from the presentation is replaced with Moment Matching because `tf.topk` in TensorFlow.js does not support gradient computation.
+### **Implementation Details**
+*   **Stack:** TensorFlow.js (runs directly in the browser).
+*   **Architectures:** 3 modes implemented: `Compression`, `Expansion`, `Transformation`.
+*   **Loss Function:** A combination of three components:
+    1.  `Distribution Match`: Matches statistics (mean & variance) to conserve the color palette.
+    2.  `Smoothness`: Penalizes sharp differences between adjacent pixels (Total Variation).
+    3.  `Direction`: Enforces a left-to-right gradient pattern.
+*   **UI:** Interactive training, comparison between Baseline model (MSE) and Student (Custom Loss), real-time visualization.
